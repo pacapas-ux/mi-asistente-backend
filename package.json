@@ -1,0 +1,29 @@
+{
+  "name": "mi-asistente-backend",
+  "version": "1.0.0",
+HEAD
+
+  "description": "Asistente virtual con respuestas en tiempo real y conexión a webs de Megafincas y Pepe Gutiérrez",
+aa5be578273b809747bc69680851f3296cb13728
+  "main": "server.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+HEAD
+    "express": "^4.21.2",
+    "cors": "^2.8.5",
+    "dotenv": "^16.6.1",
+    "node-fetch": "^2.7.0",
+    "cheerio": "^1.0.0",
+    "openai": "^4.67.3"
+
+    "express": "^5.1.0",
+    "node-fetch": "^3.3.2",
+    "dotenv": "^16.4.5",
+    "cheerio": "^1.0.0-rc.12",
+    "cors": "^2.8.5"
+aa5be578273b809747bc69680851f3296cb13728
+  }
+}
