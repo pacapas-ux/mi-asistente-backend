@@ -1,68 +1,50 @@
-HEAD
-
-// server.js
-aa5be578273b809747bc69680851f3296cb13728
-const express = require("express");
-const cors = require("cors");
-const dotenv = require("dotenv");
-const { getFAQResponse, getRealTimeResponse } = require("./apis");
+import express from "express";
+import cors from "cors";
+import dotenv from "dotenv";
+import OpenAI from "openai";
 
 dotenv.config();
+
 const app = express();
+const port = process.env.PORT || 3000;
 
 app.use(cors());
 app.use(express.json());
 
-HEAD
-app.get("/", (req, res) => {
-  res.send("Servidor del asistente activo ✅");
+// Inicializar OpenAI con tu API key
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY
 });
 
+// Endpoint de prueba
+app.get("/", (req, res) => {
+  res.send("✅ Servidor funcionando correctamente en Render!");
+});
+
+// Endpoint principal para chat
 app.post("/chat", async (req, res) => {
-  const { message } = req.body;
-
   try {
-    let reply = await getFAQResponse(message);
+    const { message } = req.body;
 
-    if (!reply) {
-      reply = await getRealTimeResponse(message);
+    if (!message) {
+      return res.status(400).json({ error: "Falta el mensaje en la solicitud" });
     }
 
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [{ role: "user", content: message }],
+    });
+
+    const reply = completion.choices[0].message.content;
     res.json({ reply });
-  } catch (error) {
-    console.error("Error:", error);
 
-// Ruta principal (solo para probar en el navegador)
-app.get("/", (req, res) => {
-  res.send("✅ Servidor del asistente funcionando correctamente");
-});
-
-// Ruta del chat
-app.post("/chat", async (req, res) => {
-  try {
-    const userMessage = req.body.message;
-
-    // Primero revisa si hay respuesta predefinida
-    const faqResponse = getFAQResponse(userMessage);
-    if (faqResponse) {
-      return res.json({ reply: faqResponse });
-    }
-
-    // Si no, usa OpenAI en tiempo real
-    const aiResponse = await getRealTimeResponse(userMessage);
-    return res.json({ reply: aiResponse });
   } catch (error) {
     console.error("❌ Error en /chat:", error);
-aa5be578273b809747bc69680851f3296cb13728
-    res.status(500).json({ reply: "⚠️ Error al conectar con el asistente." });
+    res.status(500).json({ error: "Error interno del servidor" });
   }
 });
 
-const PORT = process.env.PORT || 3000;
- HEAD
-app.listen(PORT, () => console.log(`Servidor corriendo en puerto ${PORT}`));
-
-app.listen(PORT, () => {
-  console.log(`🚀 Servidor del asistente activo en http://localhost:${PORT}`);
+// Iniciar servidor
+app.listen(port, () => {
+  console.log(`🚀 Servidor escuchando en el puerto ${port}`);
 });
- aa5be578273b809747bc69680851f3296cb13728
