@@ -1,7 +1,6 @@
 {
   "name": "mi-asistente-backend",
   "version": "1.0.0",
-  "description": "Backend para asistente con OpenAI",
   "type": "module",
   "main": "server.js",
   "scripts": {
@@ -11,6 +10,6 @@
     "express": "^4.18.2",
     "cors": "^2.8.5",
     "dotenv": "^16.3.1",
-    "openai": "^4.27.0"
+    "openai": "^4.0.0"
   }
 }
