@@ -2,6 +2,8 @@ import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
 import OpenAI from "openai";
+import fetch from "node-fetch";
+import cheerio from "cheerio";
 
 dotenv.config();
 
@@ -13,31 +15,40 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY
 });
 
-// Historial de conversaciones en memoria (para cada sesión)
+// Historial de conversación en memoria
 let chatHistory = [];
 
-// Preguntas frecuentes
-const faqs = [
-  {
-    question: "Que es Megafincas",
-    answer: "Megafincas es una plataforma de gestión de fincas y alojamientos, ofreciendo servicios de reservas, transporte y experiencias en el sector rural y turístico. Más info: www.megafincas.io"
-  },
-  {
-    question: "Quien es Pepe Gutiérrez",
-    answer: "Pepe Gutiérrez es el fundador y gestor de Megafincas. Más info: www.pepegutierrez.guru"
-  },
-  {
-    question: "Como contactar con Megafincas",
-    answer: "Puedes contactar con Megafincas a través de su web www.megafincas.io o sus redes sociales."
-  },
-  {
-    question: "Que servicios ofrece Megafincas",
-    answer: "Megafincas ofrece reservas de alojamiento y transporte, experiencias rurales, gestión de fincas, y asistencia personalizada."
-  }
-];
+// Función para obtener FAQs desde la web
+async function fetchFAQs() {
+  const sources = [
+    { url: "https://www.megafincas.io", prefix: "Megafincas" },
+    { url: "https://www.pepegutierrez.guru", prefix: "Pepe Gutiérrez" }
+  ];
 
-// Endpoint de Preguntas Frecuentes
-app.get("/faqs", (req, res) => {
+  const faqs = [];
+
+  for (const src of sources) {
+    try {
+      const res = await fetch(src.url);
+      const html = await res.text();
+      const $ = cheerio.load(html);
+
+      // Aquí sacamos <h2> o <h3> como preguntas y el siguiente <p> como respuesta
+      $("h2, h3").each((i, el) => {
+        const question = $(el).text().trim();
+        const answer = $(el).next("p").text().trim() || "Más info en " + src.url;
+        if (question && answer) faqs.push({ question, answer });
+      });
+    } catch (err) {
+      console.error(`Error cargando ${src.url}:`, err);
+    }
+  }
+  return faqs;
+}
+
+// Endpoint de FAQs
+app.get("/faqs", async (req, res) => {
+  const faqs = await fetchFAQs();
   res.json(faqs);
 });
 
@@ -47,18 +58,14 @@ app.post("/ask", async (req, res) => {
     const { prompt } = req.body;
     if (!prompt) return res.status(400).json({ error: "Falta el prompt" });
 
-    // Agregar al historial
     chatHistory.push({ role: "user", content: prompt });
 
-    // Solicitud a OpenAI con historial completo
     const completion = await openai.chat.completions.create({
       model: "gpt-4o-mini",
       messages: chatHistory,
     });
 
     const response = completion.choices[0].message.content;
-
-    // Guardar la respuesta en el historial
     chatHistory.push({ role: "assistant", content: response });
 
     res.json({ response });
