@@ -3,51 +3,38 @@ import cors from "cors";
 import dotenv from "dotenv";
 import OpenAI from "openai";
 
-// Cargar variables de entorno
 dotenv.config();
 
-// Inicializar Express
 const app = express();
-const port = process.env.PORT || 3000;
-
-// Middlewares
 app.use(cors());
 app.use(express.json());
 
-// Inicializar OpenAI con tu API key del entorno
 const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
+  apiKey: process.env.OPENAI_API_KEY
 });
 
-// Ruta de prueba
-app.get("/", (req, res) => {
-  res.send("✅ Servidor del asistente funcionando correctamente en Render");
-});
-
-// Ruta principal del chat
-app.post("/chat", async (req, res) => {
+app.post("/ask", async (req, res) => {
   try {
-    const { message } = req.body;
-
-    if (!message) {
-      return res.status(400).json({ error: "Falta el mensaje en la solicitud" });
+    const { prompt } = req.body;
+    if (!prompt) {
+      return res.status(400).json({ error: "Falta el prompt" });
     }
 
     const completion = await openai.chat.completions.create({
       model: "gpt-4o-mini",
-      messages: [{ role: "user", content: message }],
+      messages: [{ role: "user", content: prompt }],
     });
 
-    const reply = completion.choices[0].message.content;
-    res.json({ reply });
+    res.json({ response: completion.choices[0].message.content });
   } catch (error) {
-    console.error("❌ Error en /chat:", error);
-    res.status(500).json({ error: "Error interno del servidor" });
+    console.error("Error:", error);
+    res.status(500).json({ error: "Error al procesar la solicitud" });
   }
 });
 
-// Iniciar el servidor
-app.listen(port, () => {
-  console.log(`🚀 Servidor corriendo en el puerto ${port}`);
+app.get("/", (req, res) => {
+  res.send("Servidor del asistente funcionando 🚀");
 });
 
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => console.log(`Servidor escuchando en puerto ${PORT}`));
