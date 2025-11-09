@@ -3,7 +3,6 @@ import cors from "cors";
 import dotenv from "dotenv";
 import OpenAI from "openai";
 import fetch from "node-fetch";
-import cheerio from "cheerio";
 
 dotenv.config();
 
@@ -15,60 +14,53 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY
 });
 
-// Historial de conversación en memoria
-let chatHistory = [];
-
-// Función para obtener FAQs desde la web
-async function fetchFAQs() {
-  const sources = [
-    { url: "https://www.megafincas.io", prefix: "Megafincas" },
-    { url: "https://www.pepegutierrez.guru", prefix: "Pepe Gutiérrez" }
-  ];
-
-  const faqs = [];
-
-  for (const src of sources) {
-    try {
-      const res = await fetch(src.url);
-      const html = await res.text();
-      const $ = cheerio.load(html);
-
-      // Aquí sacamos <h2> o <h3> como preguntas y el siguiente <p> como respuesta
-      $("h2, h3").each((i, el) => {
-        const question = $(el).text().trim();
-        const answer = $(el).next("p").text().trim() || "Más info en " + src.url;
-        if (question && answer) faqs.push({ question, answer });
-      });
-    } catch (err) {
-      console.error(`Error cargando ${src.url}:`, err);
-    }
+// 🔹 FAQs base
+const faqs = [
+  {
+    question: "Qué es Megafincas",
+    answer: "Megafincas es una empresa dedicada a la gestión integral de comunidades de propietarios, con sede en Alicante. Puedes saber más en https://www.megafincas.io"
+  },
+  {
+    question: "Quién es Pepe Gutiérrez",
+    answer: "Pepe Gutiérrez es un experto en administración de fincas y gestión inmobiliaria. Más información en https://www.pepegutierrez.guru"
+  },
+  {
+    question: "Cómo contactar con Megafincas",
+    answer: "Puedes contactar con Megafincas desde su web oficial https://www.megafincas.io/contacto o llamando al número indicado en su página."
+  },
+  {
+    question: "Qué servicios ofrece Megafincas",
+    answer: "Megafincas ofrece administración de comunidades, gestión de incidencias, asesoría jurídica y servicios inmobiliarios. Detalles en https://www.megafincas.io"
   }
-  return faqs;
-}
+];
 
-// Endpoint de FAQs
-app.get("/faqs", async (req, res) => {
-  const faqs = await fetchFAQs();
-  res.json(faqs);
-});
-
-// Endpoint principal del chat
+// 🔹 Endpoint principal
 app.post("/ask", async (req, res) => {
   try {
     const { prompt } = req.body;
-    if (!prompt) return res.status(400).json({ error: "Falta el prompt" });
 
-    chatHistory.push({ role: "user", content: prompt });
+    if (!prompt) {
+      return res.status(400).json({ error: "Falta el prompt" });
+    }
 
+    // Comprueba si el prompt coincide con alguna FAQ
+    const found = faqs.find(f => prompt.toLowerCase().includes(f.question.toLowerCase()));
+    if (found) {
+      return res.json({ response: found.answer });
+    }
+
+    // 🔹 Si no es una FAQ, usa OpenAI
     const completion = await openai.chat.completions.create({
       model: "gpt-4o-mini",
-      messages: chatHistory,
+      messages: [
+        { role: "system", content: "Eres un asistente útil y con acceso a información en tiempo real si se te pregunta por noticias, clima o transporte." },
+        { role: "user", content: prompt }
+      ]
     });
 
     const response = completion.choices[0].message.content;
-    chatHistory.push({ role: "assistant", content: response });
-
     res.json({ response });
+
   } catch (error) {
     console.error("Error:", error);
     res.status(500).json({ error: "Error al procesar la solicitud" });
