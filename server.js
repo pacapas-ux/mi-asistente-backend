@@ -2,8 +2,6 @@ import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
 import OpenAI from "openai";
-import fetch from "node-fetch";
-import * as cheerio from "cheerio";
 
 dotenv.config();
 
@@ -11,97 +9,66 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// 🧠 Inicializa OpenAI
 const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
+  apiKey: process.env.OPENAI_API_KEY
 });
 
-// 🧩 Función para obtener contenido de una web (FAQs)
-async function obtenerInfo(url, selector = "body") {
-  try {
-    const respuesta = await fetch(url);
-    const html = await respuesta.text();
-    const $ = cheerio.load(html);
-    return $(selector).text().trim().slice(0, 2000);
-  } catch (e) {
-    console.error("❌ Error al obtener datos de la web:", e);
-    return null;
-  }
-}
+// 🌍 Contexto fijo con información real de las webs
+const contextoMegafincas = `
+Megafincas Alicante es una empresa dedicada a la administración de fincas,
+comunidades y propiedades en la provincia de Alicante. Ofrecen servicios de
+gestión integral de comunidades, mantenimiento, asesoría jurídica y contable,
+seguros, gestión de incidencias y atención personalizada. Más información en https://www.megafincas.io
+`;
 
-// 🎯 Detecta si es una pregunta frecuente
-function esFAQ(pregunta) {
-  const q = pregunta.toLowerCase();
-  if (q.includes("qué es megafincas")) return "megafincas_info";
-  if (q.includes("cómo contactar") && q.includes("megafincas")) return "megafincas_contacto";
-  if (q.includes("quién es pepe") || q.includes("gutiérrez")) return "pepe_info";
-  if (q.includes("qué servicios ofrece") && q.includes("megafincas")) return "megafincas_servicios";
-  return null;
-}
+const contextoPepe = `
+Pepe Gutiérrez es un experto en gestión inmobiliaria y administración de fincas
+con amplia experiencia en el sector. Es conferenciante, autor y colaborador habitual
+en temas relacionados con la administración de comunidades. Más información en https://www.pepegutierrez.guru
+`;
 
-// 📡 Endpoint principal
+const faqs = [
+  { q: "Qué es Megafincas", a: contextoMegafincas },
+  { q: "Quién es Pepe Gutiérrez", a: contextoPepe },
+  { q: "Cómo contactar con Megafincas", a: "Puedes contactar con Megafincas Alicante a través del sitio web oficial https://www.megafincas.io/contacto o por teléfono al número indicado en su página de contacto." },
+  { q: "Qué servicios ofrece Megafincas", a: "Megafincas ofrece administración de comunidades, gestión de incidencias, asesoría contable y jurídica, mantenimiento, seguros y atención personalizada a propietarios." }
+];
+
+// 🔹 Endpoint principal del asistente
 app.post("/ask", async (req, res) => {
   try {
     const { prompt } = req.body;
-    if (!prompt) return res.status(400).json({ error: "Falta el prompt" });
-
-    const tipo = esFAQ(prompt);
-    let contexto = "";
-
-    if (tipo) {
-      console.log(`📘 Pregunta FAQ detectada: ${tipo}`);
-
-      switch (tipo) {
-        case "megafincas_info":
-          contexto = await obtenerInfo("https://www.megafincas.io");
-          break;
-        case "megafincas_contacto":
-          contexto = await obtenerInfo("https://www.megafincas.io/contacto");
-          break;
-        case "megafincas_servicios":
-          contexto = await obtenerInfo("https://www.megafincas.io/servicios");
-          break;
-        case "pepe_info":
-          contexto = await obtenerInfo("https://www.pepegutierrez.guru");
-          break;
-      }
+    if (!prompt) {
+      return res.status(400).json({ error: "Falta el prompt" });
     }
 
-    const mensajes = [
-      {
-        role: "system",
-        content:
-          "Eres un asistente profesional y amable. Si se trata de una pregunta frecuente, responde brevemente usando la información proporcionada del sitio web. Si es una pregunta general, responde con conocimiento actual, como un asistente moderno en tiempo real.",
-      },
-      {
-        role: "user",
-        content: tipo
-          ? `Usa la siguiente información del sitio web para responder: ${contexto}`
-          : prompt,
-      },
-    ];
+    // Comprobamos si es una pregunta frecuente
+    const faq = faqs.find(f => prompt.toLowerCase().includes(f.q.toLowerCase()));
+    if (faq) {
+      return res.json({ response: faq.a });
+    }
 
-    // 🚀 Llamada a OpenAI
+    // Si no, pregunta a OpenAI con contexto
     const completion = await openai.chat.completions.create({
       model: "gpt-4o-mini",
-      messages: mensajes,
-      max_tokens: 600,
-      temperature: 0.7,
+      messages: [
+        { role: "system", content: `Eres un asistente útil que responde con información actualizada y en tiempo real si es posible. Usa el contexto siguiente:
+        ${contextoMegafincas}
+        ${contextoPepe}` },
+        { role: "user", content: prompt }
+      ]
     });
 
-    const respuesta = completion.choices[0].message.content;
-    res.json({ response: respuesta });
+    res.json({ response: completion.choices[0].message.content });
   } catch (error) {
-    console.error("❌ Error en el servidor:", error);
+    console.error("Error en /ask:", error);
     res.status(500).json({ error: "Error al procesar la solicitud" });
   }
 });
 
-// 🌐 Endpoint de prueba
 app.get("/", (req, res) => {
-  res.send("Servidor del asistente funcionando 🚀");
+  res.send("🚀 Servidor del asistente funcionando correctamente con FAQs y respuestas reales.");
 });
 
-// 🚀 Iniciar servidor
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`Servidor escuchando en puerto ${PORT}`));
