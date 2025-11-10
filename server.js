@@ -9,11 +9,12 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+// 🔑 Inicializa cliente OpenAI
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
-// 🧩 FAQs actualizadas con contacto real de Megafincas
+// 📚 FAQs con contenido real y actualizado
 const faqs = [
   {
     question: "Qué es Megafincas",
@@ -23,12 +24,12 @@ const faqs = [
   {
     question: "Quién es Pepe Gutiérrez",
     answer:
-      "Pepe Gutiérrez es un experto en gestión inmobiliaria y administración de fincas en España, fundador de Megafincas Alicante y colaborador en proyectos de innovación inmobiliaria. Más información en https://www.pepegutierrez.guru.",
+      "Pepe Gutiérrez es experto en gestión inmobiliaria y administración de fincas en España, fundador de Megafincas Alicante y colaborador en proyectos de innovación inmobiliaria. Más información en https://www.pepegutierrez.guru.",
   },
   {
     question: "Cómo contactar con Megafincas",
     answer:
-      "Puedes contactar con Megafincas Alicante a través de su sitio web oficial https://www.megafincas.io/contacto, por teléfono al 965 26 66 66 o visitando sus oficinas en Avenida de Aguilera, 47 – Entresuelo Izquierda, 03007 Alicante, España.",
+      "Puedes contactar con Megafincas Alicante a través de su web oficial https://www.megafincas.io/contacto, por teléfono al 965 26 66 66 o visitando sus oficinas en Avenida de Aguilera, 47 – Entresuelo Izquierda, 03007 Alicante, España.",
   },
   {
     question: "Qué servicios ofrece Megafincas",
@@ -37,7 +38,7 @@ const faqs = [
   },
 ];
 
-// 🚀 Endpoint principal de preguntas
+// 🚀 Endpoint principal
 app.post("/ask", async (req, res) => {
   try {
     const { prompt } = req.body;
@@ -45,7 +46,7 @@ app.post("/ask", async (req, res) => {
       return res.status(400).json({ error: "Falta el prompt" });
     }
 
-    // 1️⃣ Buscar coincidencia con una FAQ
+    // 🔍 Comprobar si es una pregunta frecuente
     const faqMatch = faqs.find((f) =>
       prompt.toLowerCase().includes(f.question.toLowerCase())
     );
@@ -53,41 +54,32 @@ app.post("/ask", async (req, res) => {
       return res.json({ response: faqMatch.answer });
     }
 
-    // 2️⃣ Si no es una FAQ, usar OpenAI con búsqueda web
+    // 🌐 Si no es FAQ, obtener respuesta en tiempo real desde OpenAI
     const completion = await openai.chat.completions.create({
       model: "gpt-4o-mini",
       messages: [
         {
           role: "system",
           content:
-            "Eres un asistente virtual útil y actualizado con acceso a la web para responder sobre cualquier tema en tiempo real (noticias, clima, deportes, trenes, etc.).",
+            "Eres un asistente virtual conectado a la web que puede proporcionar respuestas en tiempo real sobre clima, deportes, horarios de trenes, noticias, y más. Si se pide información local, responde en español.",
         },
         { role: "user", content: prompt },
       ],
-      tools: [
-        {
-          type: "web_search",
-          name: "real_time_search",
-          description:
-            "Permite buscar información en tiempo real (web, clima, deportes, trenes, etc.)",
-        },
-      ],
-      tool_choice: "auto",
     });
 
     res.json({ response: completion.choices[0].message.content });
   } catch (error) {
     console.error("❌ Error:", error);
-    res.status(500).json({ error: "Error al procesar la solicitud" });
+    res.status(500).json({ error: "⚠️ No se recibió respuesta del asistente." });
   }
 });
 
-// 🌐 Endpoint raíz
+// 🌍 Endpoint raíz
 app.get("/", (req, res) => {
-  res.send("🚀 Servidor del asistente funcionando con FAQs + búsqueda en tiempo real.");
+  res.send("🚀 Servidor del asistente funcionando con FAQs + tiempo real activo.");
 });
 
-// 🧩 Puerto
+// ⚙️ Puerto
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () =>
   console.log(`✅ Servidor escuchando en puerto ${PORT}`)
