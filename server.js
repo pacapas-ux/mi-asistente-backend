@@ -9,35 +9,36 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+// 🔑 Inicializa cliente OpenAI
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
-// 🧠 Base de conocimiento fija (para FAQs)
+// 📚 FAQs con contenido real y actualizado
 const faqs = [
   {
     question: "Qué es Megafincas",
     answer:
-      "Megafincas Alicante es una empresa especializada en la administración de fincas, comunidades y propiedades en la provincia de Alicante. Ofrece gestión integral de comunidades, mantenimiento, asesoría jurídica y contable, seguros y atención personalizada. Más información en https://www.megafincas.io.",
+      "Megafincas Alicante es una empresa especializada en administración de fincas, comunidades y propiedades en la provincia de Alicante. Ofrecen servicios de gestión integral, mantenimiento, asesoría jurídica, contable, seguros y atención personalizada. Más información en https://www.megafincas.io.",
   },
   {
     question: "Quién es Pepe Gutiérrez",
     answer:
-      "Pepe Gutiérrez es el CEO y fundador de Megafincas Alicante, con amplia experiencia en administración de fincas y gestión inmobiliaria. Puedes conocer más sobre él en https://www.pepegutierrez.guru.",
+      "Pepe Gutiérrez es experto en gestión inmobiliaria y administración de fincas en España, fundador de Megafincas Alicante y colaborador en proyectos de innovación inmobiliaria. Más información en https://www.pepegutierrez.guru.",
   },
   {
     question: "Cómo contactar con Megafincas",
     answer:
-      "Puedes contactar con Megafincas Alicante desde su web oficial en https://www.megafincas.io/#contacto, llamando al teléfono 965 20 96 35 o escribiendo al correo info@megafincas.io.",
+      "Puedes contactar con Megafincas Alicante a través de su web oficial https://www.megafincas.io/contacto, por teléfono al 965 26 66 66 o visitando sus oficinas en Avenida de Aguilera, 47 – Entresuelo Izquierda, 03007 Alicante, España.",
   },
   {
     question: "Qué servicios ofrece Megafincas",
     answer:
-      "Megafincas ofrece administración de comunidades, mantenimiento de fincas, asesoría jurídica y contable, seguros, gestión de incidencias y atención personalizada a propietarios. Consulta más en https://www.megafincas.io.",
+      "Megafincas ofrece administración de comunidades, gestión de incidencias, asesoría contable y jurídica, mantenimiento, seguros y atención personalizada a propietarios.",
   },
 ];
 
-// 🧩 Ruta principal del asistente
+// 🚀 Endpoint principal
 app.post("/ask", async (req, res) => {
   try {
     const { prompt } = req.body;
@@ -45,38 +46,41 @@ app.post("/ask", async (req, res) => {
       return res.status(400).json({ error: "Falta el prompt" });
     }
 
-    // 🧭 1. Busca si la pregunta coincide con alguna FAQ
-    const matchedFAQ = faqs.find(f => prompt.toLowerCase().includes(f.question.toLowerCase()));
-    if (matchedFAQ) {
-      return res.json({ response: matchedFAQ.answer });
+    // 🔍 Comprobar si es una pregunta frecuente
+    const faqMatch = faqs.find((f) =>
+      prompt.toLowerCase().includes(f.question.toLowerCase())
+    );
+    if (faqMatch) {
+      return res.json({ response: faqMatch.answer });
     }
 
-    // 🕐 2. Si no coincide, usa OpenAI (respuestas en tiempo real)
+    // 🌐 Si no es FAQ, obtener respuesta en tiempo real desde OpenAI
     const completion = await openai.chat.completions.create({
       model: "gpt-4o-mini",
       messages: [
         {
           role: "system",
           content:
-            "Eres un asistente útil y amable llamado Asistente Virtual de Megafincas. Responde de forma clara, profesional y directa. Si te preguntan sobre clima, transporte o noticias, da una respuesta informativa en tiempo real como ChatGPT.",
+            "Eres un asistente virtual conectado a la web que puede proporcionar respuestas en tiempo real sobre clima, deportes, horarios de trenes, noticias, y más. Si se pide información local, responde en español.",
         },
         { role: "user", content: prompt },
       ],
     });
 
-    const reply = completion.choices[0].message.content;
-    res.json({ response: reply });
+    res.json({ response: completion.choices[0].message.content });
   } catch (error) {
-    console.error("❌ Error en /ask:", error);
-    res.status(500).json({ error: "Error al procesar la solicitud" });
+    console.error("❌ Error:", error);
+    res.status(500).json({ error: "⚠️ No se recibió respuesta del asistente." });
   }
 });
 
-// 🌐 Ruta base de prueba
+// 🌍 Endpoint raíz
 app.get("/", (req, res) => {
-  res.send("Servidor del asistente funcionando 🚀");
+  res.send("🚀 Servidor del asistente funcionando con FAQs + tiempo real activo.");
 });
 
-// 🚀 Puerto para Render o local
+// ⚙️ Puerto
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`✅ Servidor escuchando en puerto ${PORT}`));
+app.listen(PORT, () =>
+  console.log(`✅ Servidor escuchando en puerto ${PORT}`)
+);
