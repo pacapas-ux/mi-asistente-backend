@@ -10,72 +10,68 @@ app.use(cors());
 app.use(express.json());
 
 const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
+  apiKey: process.env.OPENAI_API_KEY
 });
 
-// FAQs base de Megafincas
-const faqAnswers = {
-  "qué es megafincas": `Megafincas Alicante es una empresa especializada en la administración de fincas, comunidades y propiedades en la provincia de Alicante. Ofrecen servicios de gestión integral, mantenimiento, asesoría jurídica y contable, seguros, y atención personalizada. Más información en https://www.megafincas.io`,
-  
-  "quién es pepe gutiérrez": `Pepe Gutiérrez es el fundador y gerente de Megafincas Alicante, un profesional con amplia experiencia en administración de comunidades y gestión inmobiliaria. Puedes conocer más sobre él en https://www.pepegutierrez.guru`,
-
-  "cómo contactar con megafincas": `Puedes contactar con Megafincas Alicante desde su web oficial https://www.megafincas.io/#contacto, 
-por teléfono al +34 965 63 70 05, 
-por correo electrónico a alc@megafincas.io, 
-o visitar su oficina en SAN BARTOLOMÉ 174, EL CAMPELLO, ALICANTE (03560).`,
-
-  "qué servicios ofrece megafincas": `Megafincas ofrece administración de comunidades, gestión de incidencias, asesoría contable y jurídica, mantenimiento, seguros, atención personalizada a propietarios y gestión integral de fincas.`,
-};
+// FAQs personalizadas de Megafincas
+const faqs = [
+  {
+    q: "qué es megafincas",
+    a: "Megafincas Alicante es una empresa especializada en la administración de comunidades, gestión de fincas y asesoría integral de propiedades. Ofrece servicios de mantenimiento, contabilidad, seguros y atención personalizada. Más información en https://www.megafincas.io."
+  },
+  {
+    q: "quién es pepe gutiérrez",
+    a: "Pepe Gutiérrez es un experto en gestión inmobiliaria y administración de fincas en España, colaborador de Megafincas y conferencista habitual en temas de vivienda y propiedad horizontal. Puedes conocer más en https://www.pepegutierrez.guru."
+  },
+  {
+    q: "cómo contactar con megafincas",
+    a: "Puedes contactar con Megafincas Alicante desde su web oficial en https://www.megafincas.io/#contacto, llamando al teléfono +34 965 63 70 05, o visitando sus oficinas en San Bartolomé 174, El Campello, Alicante (03560). También puedes escribir a alc@megafincas.io."
+  },
+  {
+    q: "qué servicios ofrece megafincas",
+    a: "Megafincas ofrece administración de comunidades, gestión de incidencias, asesoría contable y jurídica, mantenimiento, seguros y atención personalizada. Más en https://www.megafincas.io."
+  }
+];
 
 app.post("/ask", async (req, res) => {
   try {
     const { prompt } = req.body;
-    if (!prompt) return res.status(400).json({ error: "Falta el prompt" });
-
-    const lowerPrompt = prompt.toLowerCase().trim();
-
-    // 📚 FAQs predefinidas
-    for (const key of Object.keys(faqAnswers)) {
-      if (lowerPrompt.includes(key)) {
-        return res.json({ reply: faqAnswers[key] });
-      }
+    if (!prompt) {
+      return res.status(400).json({ error: "Falta el prompt" });
     }
 
-    // 📅 Fecha actual (dinámica)
-    if (lowerPrompt.includes("qué día es hoy") || lowerPrompt.includes("que dia es hoy")) {
-      const fecha = new Date();
-      const opciones = { weekday: "long", year: "numeric", month: "long", day: "numeric" };
-      const fechaTexto = fecha.toLocaleDateString("es-ES", opciones);
-      return res.json({ reply: `Hoy es ${fechaTexto}.` });
+    // Busca si la pregunta coincide con alguna FAQ
+    const faqMatch = faqs.find(f => prompt.toLowerCase().includes(f.q));
+    if (faqMatch) {
+      return res.json({ response: faqMatch.a });
     }
 
-    // 🌍 Consultas generales con OpenAI
+    // Si no coincide, consulta a OpenAI (respuestas actuales y realistas)
     const completion = await openai.chat.completions.create({
       model: "gpt-4o-mini",
       messages: [
         {
           role: "system",
-          content: `Eres un asistente útil llamado "Asistente Virtual de Megafincas". 
-          Si te preguntan por Megafincas o Pepe Gutiérrez, responde con la información verificada de las webs:
-          - https://www.megafincas.io
-          - https://www.pepegutierrez.guru
-          Si te preguntan sobre clima, noticias, resultados deportivos o transporte, ofrece una respuesta realista y actual basada en tu conocimiento hasta el momento actual.`,
+          content: `Eres un asistente virtual llamado Megabot. 
+          Tu objetivo es responder con información actual y útil sobre cualquier tema (noticias, clima, transporte, TV, etc.), 
+          como lo haría ChatGPT con acceso a internet.
+          Si no sabes algo, indica cómo el usuario puede consultarlo.`
         },
-        { role: "user", content: prompt },
+        { role: "user", content: prompt }
       ],
+      temperature: 0.7
     });
 
-    const reply = completion.choices[0]?.message?.content || "Lo siento, no tengo una respuesta para eso.";
-    res.json({ reply });
+    res.json({ response: completion.choices[0].message.content.trim() });
   } catch (error) {
-    console.error("❌ Error en /ask:", error);
+    console.error("Error:", error);
     res.status(500).json({ error: "Error al procesar la solicitud" });
   }
 });
 
 app.get("/", (req, res) => {
-  res.send("🚀 Servidor del Asistente Virtual de Megafincas funcionando correctamente.");
+  res.send("Servidor del asistente funcionando 🚀");
 });
 
-const PORT = process.env.PORT || 10000;
+const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`Servidor escuchando en puerto ${PORT}`));
