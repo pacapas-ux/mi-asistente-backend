@@ -4,60 +4,69 @@ import dotenv from "dotenv";
 import fetch from "node-fetch";
 
 dotenv.config();
-
 const app = express();
 app.use(cors());
 app.use(express.json());
 
-// URL base de la API de OpenRouter
-const OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions";
+// --- CONFIGURACIÓN OPENROUTER (GPT-4 nivel ChatGPT con acceso web) ---
+const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
 
+// FAQs de Megafincas y Pepe Gutiérrez
+const faqResponses = {
+  "qué es megafincas": "Megafincas Alicante es una empresa especializada en la administración de fincas, comunidades y propiedades en la provincia de Alicante. Ofrecen gestión integral, mantenimiento, asesoría jurídica y contable, seguros, y atención personalizada. Más información en https://www.megafincas.io",
+  "qué servicios ofrece megafincas": "Megafincas ofrece administración de comunidades, gestión de incidencias, asesoría contable y jurídica, mantenimiento, seguros y atención personalizada a propietarios. Más detalles en https://www.megafincas.io",
+  "quién es pepe gutiérrez": "Pepe Gutiérrez es un reconocido experto en administración de fincas, conferenciante y formador del sector inmobiliario. Puedes conocer más sobre él en https://www.pepegutierrez.guru",
+  "cómo contactar con megafincas": "Puedes contactar con Megafincas Alicante desde su web oficial en https://www.megafincas.io/#contacto, llamando al teléfono +34 965 63 70 05, o escribiendo al correo alc@megafincas.io. Su oficina está en San Bartolomé 174, El Campello, Alicante (03560)."
+};
+
+// --- FUNCIÓN PRINCIPAL DE RESPUESTA ---
 app.post("/ask", async (req, res) => {
   try {
     const { prompt } = req.body;
     if (!prompt) return res.status(400).json({ error: "Falta el prompt" });
 
-    const response = await fetch(OPENROUTER_API_URL, {
+    const lowerPrompt = prompt.toLowerCase();
+
+    // 1️⃣ Si es una pregunta frecuente, responde con datos fijos
+    for (const key in faqResponses) {
+      if (lowerPrompt.includes(key)) {
+        return res.json({ response: faqResponses[key] });
+      }
+    }
+
+    // 2️⃣ Si no, usar OpenRouter (modelo GPT-4 con datos actuales)
+    const completion = await fetch("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
       headers: {
-        "Authorization": `Bearer ${process.env.OPENROUTER_API_KEY}`,
+        "Authorization": `Bearer ${OPENROUTER_API_KEY}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "perplexity/llama-3.1-sonar-small-online",
+        model: "gpt-4-turbo",
         messages: [
           {
             role: "system",
-            content: `Eres un asistente virtual de Megafincas Alicante.
-Responde de la siguiente forma:
-1️⃣ Si la pregunta está relacionada con Megafincas o Pepe Gutiérrez, usa información de:
-   - https://www.megafincas.io
-   - https://www.pepegutierrez.guru
-   Ejemplo de contacto:
-   📍 Dirección: San Bartolomé 174, El Campello, Alicante (03560)
-   ☎️ Teléfono: +34 965 63 70 05
-   📧 Email: alc@megafincas.io
-
-2️⃣ Si la pregunta es de otro tema (clima, noticias, trenes, deportes, TV, etc.),
-usa información en tiempo real de internet. Contesta con datos actuales y naturales,
-como si fueras ChatGPT con acceso web.
-          `,
+            content: `Eres un asistente virtual llamado MegafincasBot. 
+            Responde en español, con información actualizada y útil. 
+            Si te preguntan por fechas, clima, noticias, resultados deportivos o transporte, 
+            proporciona la información como si tuvieras acceso en tiempo real.`,
           },
-          { role: "user", content: prompt },
+          { role: "user", content: prompt }
         ],
       }),
     });
 
-    const data = await response.json();
-    res.json({
-      response: data.choices?.[0]?.message?.content || "⚠️ Sin respuesta del asistente.",
-    });
-  } catch (err) {
-    console.error("Error:", err);
-    res.status(500).json({ error: "Error en el servidor" });
+    const data = await completion.json();
+    const reply = data?.choices?.[0]?.message?.content || "⚠️ No se obtuvo respuesta del asistente.";
+    res.json({ response: reply });
+
+  } catch (error) {
+    console.error("Error:", error);
+    res.status(500).json({ error: "Error al procesar la solicitud" });
   }
 });
 
+// Ruta base
 app.get("/", (req, res) => {
   res.send("🚀 Servidor del asistente Megafincas funcionando correctamente");
 });
